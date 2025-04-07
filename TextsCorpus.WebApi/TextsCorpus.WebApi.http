@@ -1,0 +1,6 @@
+@TextsCorpus.WebApi_HostAddress = http://localhost:5028
+
+GET {{TextsCorpus.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
