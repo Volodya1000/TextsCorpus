@@ -1,7 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+using TexstsCorpus.Model;
+
 var builder = WebApplication.CreateBuilder(args);
 
 var services = builder.Services;
 var configuration = builder.Configuration;
+
+services.AddDbContext<CorpusDbContext>(options =>
+        options.UseSqlite("TextsCorpus.db"));
+
 
 services.AddEndpointsApiExplorer();
 services.AddSwaggerGen();
