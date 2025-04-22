@@ -10,7 +10,8 @@ public class CorpusDbContext : DbContext
     public DbSet<Sentence> Sentences { get; set; }
     public DbSet<Token> Tokens { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    public CorpusDbContext(DbContextOptions<CorpusDbContext> options)
+             : base(options)
     {
     }
 

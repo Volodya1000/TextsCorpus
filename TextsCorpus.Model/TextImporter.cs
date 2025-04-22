@@ -3,16 +3,17 @@ using TexstsCorpus.Model.Entities;
 using TexstsCorpus.Model.Enums;
 using TexstsCorpus.Model;
 using Microsoft.EntityFrameworkCore;
+using TextsCorpus.Model.Repositories;
 
 namespace TextsCorpus.Model;
 
 public class TextImporter
 {
-    private readonly CorpusDbContext _context;
+    private readonly ITextsRepository _repository;
 
-    public TextImporter(CorpusDbContext context)
+    public TextImporter(ITextsRepository repository)
     {
-        _context = context;
+        _repository = repository;
     }
 
     public async Task<int> ImportTextAsync(
@@ -22,62 +23,39 @@ public class TextImporter
         DateTime publicationDate)
     {
         var textData = JsonSerializer.Deserialize<TextData>(jsonData);
-
-        var author = await _context.Authors
-            .FirstOrDefaultAsync(a => a.Name == authorName)
-            ?? new Author { Name = authorName };
+        var author = new Author { Name = authorName };
 
         var text = new Text
         {
             Title = title,
             PublicationDate = publicationDate,
             Author = author,
-            Sentences = new List<Sentence>()
+            Sentences = textData.Sentences.Select((s, i) => new Sentence
+            {
+                OrderInText = i + 1,
+                Tokens = s.Tokens.Select(t => MapToken(t)).ToList()
+            }).ToList()
         };
 
-        int globalTokenIndex = 0;
+        return await _repository.AddTextAsync(text);
+    }
 
-        foreach (var sentenceData in textData.Sentences)
+    private Token MapToken(TokenData tokenData)
+    {
+        return new Token
         {
-            var sentence = new Sentence
-            {
-                OrderInText = text.Sentences.Count + 1,
-                Tokens = new List<Token>()
-            };
-
-            foreach (var tokenData in sentenceData.Tokens)
-            {
-                var token = new Token
+            TokenText = tokenData.Token,
+            Type = MapTokenType(tokenData.Type),
+            IndexInText = tokenData.Index,
+            Lemma = tokenData.Lemma ?? string.Empty,
+            GrammarCategories = tokenData.GrammarCategories?
+                .Select(g => new GrammarCategory
                 {
-                    TokenText = tokenData.Token,
-                    Type = MapTokenType(tokenData.Type),
-                    IndexInText = globalTokenIndex++,
-                    Lemma = tokenData.Lemma ?? string.Empty,
-                    GrammarCategories = new List<GrammarCategory>()
-                };
-
-                if (tokenData.GrammarCategories != null)
-                {
-                    foreach (var category in tokenData.GrammarCategories)
-                    {
-                        token.GrammarCategories.Add(new GrammarCategory
-                        {
-                            Key = category.Key,
-                            Value = category.Value
-                        });
-                    }
-                }
-
-                sentence.Tokens.Add(token);
-            }
-
-            text.Sentences.Add(sentence);
-        }
-
-        await _context.Texts.AddAsync(text);
-        await _context.SaveChangesAsync();
-
-        return text.Id;
+                    Key = g.Key,
+                    Value = g.Value
+                })
+                .ToList() ?? new List<GrammarCategory>()
+        };
     }
 
     private TokenType MapTokenType(string type) => type switch
@@ -99,7 +77,7 @@ file class SentenceData
     public List<TokenData> Tokens { get; set; }
 }
 
-file class TokenData
+public class TokenData
 {
     public int Index { get; set; }
     public string Token { get; set; }
